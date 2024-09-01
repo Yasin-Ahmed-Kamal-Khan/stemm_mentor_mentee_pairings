@@ -27,9 +27,12 @@ class Mentee:
         self.full_name = row.What_is_your_full_name
         self.email = row.What_is_your_email_address
         self.a_levels = row.What_A_Levels_are_you_currently_taking
-        self.interested_subjects = row.What_are_you_interested_in_studying_at_university_Select_all_that_you_may_be_interested_in.split(
-            ","
-        )
+        self.interested_subjects = [
+            item.strip()
+            for item in row.What_are_you_interested_in_studying_at_university_Select_all_that_you_may_be_interested_in.split(
+                ","
+            )
+        ]
         self.gender = row.Are_you_a_brother_or_sister
         self.phone_number = row.What_is_your_phone_number
         self.why_interested = (
@@ -50,7 +53,10 @@ class MentorList:
 
     def pair_mentee(self, mentee: Mentee):
         for mentor, mentors_mentees in self.mentor_pairings:
-            if mentor.course in mentee.interested_subjects:
+            if (
+                mentor.course in mentee.interested_subjects
+                and mentor.gender == mentee.gender
+            ):
                 print(
                     f"""{mentee.full_name} paired with {mentor.full_name}
 Mentor does {mentor.course}, mentee interested in {mentee.interested_subjects}"""
@@ -63,17 +69,34 @@ Mentor does {mentor.course}, mentee interested in {mentee.interested_subjects}""
         self.exception_students.append(mentee)
 
     def make_mentor_mentee_json(self):
-        json_data = []
+        json_mentor_mentee_pairs_data = []
+        json_unpaired_mentor_data = []
+        json_unpaired_mentee_data = [
+            {"mentee": vars(mentee)} for mentee in self.exception_students
+        ]
         for (
             mentor,
             mentees,
         ) in self.mentor_pairings:
-            entry = {
-                "mentor": vars(mentor),
-                "mentees": [vars(mentee) for mentee in mentees],
-            }
-            json_data.append(entry)
+            if mentees:
+                entry = {
+                    "mentor": vars(mentor),
+                    "mentees": [vars(mentee) for mentee in mentees],
+                }
+                json_mentor_mentee_pairs_data.append(entry)
+            else:
+                entry = {"mentor": vars(mentor)}
+                json_unpaired_mentor_data.append(entry)
 
-        json_string = json.dumps(json_data, indent=4)
-        with open("pairings.json", "w") as f:
-            f.write(json_string)
+        json_mentor_mentee_pairs_string = json.dumps(
+            json_mentor_mentee_pairs_data, indent=4
+        )
+        json_unpaired_mentee_string = json.dumps(json_unpaired_mentee_data, indent=4)
+        json_unpaired_mentor_string = json.dumps(json_unpaired_mentor_data, indent=4)
+
+        with open("mentor_mentee_pairings.json", "w") as f:
+            f.write(json_mentor_mentee_pairs_string)
+        with open("unpaired_mentors.json", "w") as f:
+            f.write(json_unpaired_mentor_string)
+        with open("unpaired_mentees.json", "w") as f:
+            f.write(json_unpaired_mentee_string)

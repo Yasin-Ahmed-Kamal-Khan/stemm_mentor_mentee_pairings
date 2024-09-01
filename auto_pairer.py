@@ -3,7 +3,6 @@ from posixpath import isdir
 import pandas as pd
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
-import csv
 import os
 from mentor_mentee_classes import *
 
@@ -37,7 +36,6 @@ def get_mentor_mentee_dfs(spreadsheet, mentee_form_name, mentor_form_name):
     mentee_df.columns = [clean_text(col) for col in mentee_df.columns]
     mentor_df.columns = [clean_text(col) for col in mentor_df.columns]
 
-    print(mentor_df.columns)
     return (mentor_df, mentee_df)
 
 

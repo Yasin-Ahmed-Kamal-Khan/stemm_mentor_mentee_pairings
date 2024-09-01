@@ -1,5 +1,4 @@
 /csvs/*
 spreadsheet_id.txt
-key.json
-pairings.json
+*.json
 __pycache__

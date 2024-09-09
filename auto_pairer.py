@@ -5,7 +5,13 @@ from google.oauth2 import service_account
 from googleapiclient.discovery import build
 import os
 from mentor_mentee_classes import *
+medicine_pattern = r"(medicine|pharmacy|dent.*|law)"
 
+def remove_medics(interested_courses):
+    if pd.isna(interested_courses):
+        return interested_courses
+    
+    return ','.join([course.strip() for course in interested_courses.split(',') if not re.match(medicine_pattern, course.strip(), flags=re.IGNORECASE)])
 
 def get_mentor_mentee_dfs(spreadsheet, mentee_form_name, mentor_form_name):
     with open(spreadsheet, "r") as f:
@@ -20,7 +26,7 @@ def get_mentor_mentee_dfs(spreadsheet, mentee_form_name, mentor_form_name):
     mentee_request = (
         service.spreadsheets()
         .values()
-        .get(spreadsheetId=spreadsheet_id, range="test_form")
+        .get(spreadsheetId=spreadsheet_id, range=mentee_form_name)
     )
     mentee_data = mentee_request.execute().get("values", [])
 
@@ -35,8 +41,12 @@ def get_mentor_mentee_dfs(spreadsheet, mentee_form_name, mentor_form_name):
     mentor_df = pd.DataFrame(mentor_data[1:], columns=mentor_data[0])
     mentee_df.columns = [clean_text(col) for col in mentee_df.columns]
     mentor_df.columns = [clean_text(col) for col in mentor_df.columns]
+   
+    mentee_df['What_are_you_interested_in_studying_at_university_Select_all_that_you_may_be_interested_in'] = mentee_df['What_are_you_interested_in_studying_at_university_Select_all_that_you_may_be_interested_in'].apply(remove_medics)
 
-    return (mentor_df, mentee_df)
+    mentee_df = mentee_df[~mentee_df.duplicated(subset='What_is_your_email_address', keep='first')]
+    print(mentee_df)
+    return (mentor_df.dropna(), mentee_df.dropna())
 
 
 def clean_text(text):
@@ -46,7 +56,7 @@ def clean_text(text):
     return text.strip("_")
 
 
-def make_csvs(mentor_df, mentee_df):
+def make_csvs(mentor_df, mentee_df, from_scratch=True):
     brother_mentors = [mentor_df.columns.tolist()]
     sister_mentors = [mentor_df.columns.tolist()]
     brother_mentees = [mentee_df.columns.tolist()]
@@ -69,9 +79,10 @@ def make_csvs(mentor_df, mentee_df):
     folder = os.path.join(os.getcwd(), "csvs")
     if not os.path.isdir(os.path.join(os.getcwd(), "csvs")):
         os.mkdir(folder)
-
-    mentor_df.to_csv(os.path.join(folder, "mentors.csv"))
-    mentee_df.to_csv(os.path.join(folder, "mentees.csv"))
+    if from_scratch:
+        mentor_df['current_student_numbers'] = 0
+    mentor_df.to_csv(os.path.join(folder, "mentors.csv"), index=False)
+    mentee_df.to_csv(os.path.join(folder, "mentees.csv"), index=False)
 
     brother_mentors_df = pd.DataFrame(brother_mentors)
     brother_mentors_df.to_csv(
@@ -94,12 +105,13 @@ def make_csvs(mentor_df, mentee_df):
 
 if __name__ == "__main__":
     mentor_df, mentee_df = get_mentor_mentee_dfs(
-        "spreadsheet_id.txt", "test_form", "test_form_2"
+        "spreadsheet_id.txt", "Form responses 1", "Form responses 2"
     )
     make_csvs(mentor_df, mentee_df)
 
     mentor_list = MentorList(os.path.join("csvs", "mentors.csv"))
     for row in mentee_df.itertuples():
-        mentor_list.pair_mentee(Mentee(row))
+        if pd.notna(row):
+            mentor_list.pair_mentee(Mentee(row))
 
     mentor_list.make_mentor_mentee_json()
